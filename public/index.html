@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starwin PVC - Versión PRO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
+    <link href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+
+    <style>
+        [x-cloak] { display: none !important; }
+        .keyword-common { font-weight: 600; padding: 1px 3px; border-radius: 4px; }
+        .keyword-product { color: #1D4ED8; background-color: #EFF6FF; }
+        .keyword-measure { color: #059669; }
+        .keyword-color-nogal { color: #78350F; background-color: #FEF3C7; }
+        .keyword-color-blanco { color: #374151; background-color: #F3F4F6; border: 1px solid #D1D5DB; }
+        .keyword-color-antracita { color: #F9FAFB; background-color: #374151; }
+        .keyword-color-winchester, .keyword-color-robledorado { color: #854D0E; background-color: #FEF08A;}
+        .keyword-opening-proyectante { color: #991B1B; }
+        .keyword-opening-abatible { color: #581C87; }
+        .keyword-opening-corrediza { color: #0E7490; }
+        .keyword-opening-oscilobatiente { color: #86198F; }
+        @keyframes highlight-pulse { 0% { background-color: #DBEAFE; } 100% { background-color: transparent; } }
+        .highlight-card { animation: highlight-pulse 2.5s ease-out; }
+        .fc-event-main { white-space: normal !important; word-wrap: break-word; }
+        .toast-enter-active, .toast-leave-active { transition: all 300ms ease-in-out; }
+        .toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-20px); }
+        .toast-enter-to, .toast-leave-from { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+
+<body class="bg-slate-100 h-full font-sans" x-data="app()" x-init="init()">
+
+    <!-- ===== PANTALLA DE LOGIN ===== -->
+    <div x-show="!isAuthenticated" x-cloak class="fixed inset-0 bg-slate-800 flex items-center justify-center z-50">
+        <div class="w-full max-w-sm" @keyup.enter="login()"><form @submit.prevent="login()" class="bg-white shadow-lg rounded-xl px-8 pt-6 pb-8"><h1 class="text-3xl font-bold text-center text-slate-800 mb-2">Starwin PVC</h1><p class="text-center text-slate-500 mb-6">Versión PRO</p><div class="mb-4"><label class="block text-gray-700 text-sm font-bold mb-2" for="password">Contraseña</label><input x-model="password" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500" id="password" type="password" placeholder="•••••••••"></div><template x-if="loginError"><p class="text-red-500 text-xs italic mb-4" x-text="loginError"></p></template><button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg w-full" type="submit">Ingresar</button></form></div>
+    </div>
+
+    <!-- ===== APLICACIÓN PRINCIPAL ===== -->
+    <div x-show="isAuthenticated" x-cloak class="relative min-h-screen md:flex">
+        <!-- Overlay -->
+        <div @click="isSidebarOpen = false" x-show="isSidebarOpen" class="fixed inset-0 bg-black/30 z-30 md:hidden"></div>
+        <!-- Sidebar -->
+        <aside :class="{'translate-x-0': isSidebarOpen, '-translate-x-full': !isSidebarOpen}" class="fixed inset-y-0 left-0 bg-slate-800 text-white w-64 flex-shrink-0 flex flex-col transform transition-transform duration-300 ease-in-out z-40 md:relative md:translate-x-0">
+            <div class="p-6 text-center border-b border-slate-700"><h1 class="text-2xl font-bold">Starwin PVC</h1><p class="text-sm text-slate-400">Versión PRO</p></div>
+            <nav class="flex-1 px-4 py-6 space-y-2">
+                <template x-for="page in pages"><a href="#" @click.prevent="switchPage(page.id)" :class="{'bg-blue-600 text-white': currentPage === page.id, 'hover:bg-slate-700': currentPage !== page.id}" class="flex items-center px-4 py-2 rounded-lg transition-colors"><ion-icon :name="page.icon" class="mr-3 text-lg"></ion-icon><span x-text="page.title"></span></a></template>
+            </nav>
+            <div class="px-4 py-4 border-t border-slate-700"><a href="#" @click.prevent="logout()" class="flex items-center px-4 py-2 rounded-lg text-slate-300 hover:bg-red-600 hover:text-white transition-colors"><ion-icon name="log-out-outline" class="mr-3 text-lg"></ion-icon><span>Cerrar Sesión</span></a></div>
+        </aside>
+
+        <!-- Contenido Principal -->
+        <main class="flex-1 md:ml-0">
+            <header class="md:hidden flex justify-between items-center bg-white p-4 shadow-md sticky top-0 z-20">
+                <button @click="isSidebarOpen = !isSidebarOpen"><ion-icon name="menu-outline" class="text-3xl text-slate-700"></ion-icon></button>
+                <h1 class="text-xl font-bold text-slate-800" x-text="pages.find(p => p.id === currentPage)?.title || 'Dashboard'"></h1>
+            </header>
+            
+            <div class="p-4 sm:p-6 md:p-10">
+                <!-- ===================================== -->
+                <!-- ===== DASHBOARD GENERAL MEJORADO ===== -->
+                <!-- ===================================== -->
+                <div x-show="currentPage === 'dashboard'">
+                    <h2 class="text-3xl font-bold text-slate-800 mb-8">Dashboard General</h2>
+                    
+                    <!-- KPIs -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <template x-for="kpi in kpiCards"><div class="bg-white p-6 rounded-xl shadow-md"><div class="flex items-center"><div class="p-3 rounded-full mr-4" :class="kpi.bgColor"><ion-icon :name="kpi.icon" class="text-2xl" :class="kpi.iconColor"></ion-icon></div><div><p class="text-sm text-gray-500" x-text="kpi.label"></p><p class="text-2xl font-bold" x-text="formatCurrency(dashboardData.kpis[kpi.key])"></p></div></div></div></template>
+                    </div>
+                    
+                    <!-- Gráficos y Tareas -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Gráfico Financiero Principal -->
+                        <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md"><h3 class="text-lg font-semibold mb-4">Análisis Financiero (Últimos 6 meses)</h3><div class="h-80"><canvas id="monthlyFinancialsChart"></canvas></div></div>
+                        
+                        <!-- Gráfico de Estado de Pedidos -->
+                        <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md"><h3 class="text-lg font-semibold mb-4">Estado de Pedidos Activos</h3>
+                            <div x-show="dashboardData.statusSummary.length > 0" class="flex items-center justify-center relative w-full h-56">
+                                <canvas id="statusSummaryChart"></canvas>
+                            </div>
+                            <ul class="mt-4 space-y-2">
+                                <template x-for="status in dashboardData.statusSummary" :key="status.status">
+                                    <li class="flex justify-between text-sm items-center">
+                                        <span class="flex items-center"><span class="h-2.5 w-2.5 rounded-full mr-2" :style="`background-color: ${statusInfo(status.status).color}`"></span><span x-text="status.status"></span></span>
+                                        <span class="font-bold bg-slate-100 px-2 rounded" x-text="status.count"></span>
+                                    </li>
+                                </template>
+                            </ul>
+                            <template x-if="!loading.initial && dashboardData.statusSummary.length === 0"><p class="text-center text-gray-400 text-sm mt-10">No hay datos de estado.</p></template>
+                        </div>
+                        
+                        <!-- Próximas Tareas -->
+                        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md"><h3 class="text-lg font-semibold mb-4">Próximas Tareas</h3>
+                            <ul class="space-y-3"><template x-if="loading.initial"><li class="text-center text-gray-400 text-sm py-8">Cargando tareas...</li></template>
+                                <template x-for="task in upcomingTasks" :key="task.id + task.type">
+                                    <li class="p-3 rounded-lg hover:bg-slate-50 cursor-pointer" @click="navigateTo(task.type, task.clientId, task.id)">
+                                        <div class="flex items-center justify-between"><div class="flex items-center"><span class="h-8 w-8 rounded-full flex items-center justify-center mr-3" :class="task.type === 'Medición' ? 'bg-cyan-100 text-cyan-600' : 'bg-indigo-100 text-indigo-600'"><ion-icon :name="task.icon"></ion-icon></span><div><p class="font-semibold text-sm" x-text="`${task.type} - ${task.clientName}`"></p><p class="text-xs text-gray-500" x-text="formatFullDateTime(task.date)"></p></div></div><ion-icon name="arrow-forward-circle-outline" class="text-gray-400 text-xl"></ion-icon></div>
+                                    </li>
+                                </template><template x-if="!loading.initial && upcomingTasks.length === 0"><li class="text-center text-gray-400 text-sm py-8">No hay tareas programadas.</li></template>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- CALENDARIO -->
+                <div x-show="currentPage === 'calendar'"><h2 class="text-3xl font-bold text-slate-800 mb-8">Calendario de Tareas</h2><div class="bg-white p-2 sm:p-4 rounded-xl shadow-md"><div id="calendar-container"></div></div></div>
+
+                <!-- TODOS LOS PEDIDOS -->
+                <div x-show="currentPage === 'all_orders'"><header class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4"><h2 class="text-3xl font-bold text-slate-800">Todos los Pedidos</h2><button @click="exportToExcel('orders')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center space-x-2 flex-shrink-0"><ion-icon name="download-outline"></ion-icon><span>Exportar</span></button></header><div id="grid-orders-wrapper" class="bg-white rounded-xl shadow-md p-2"></div></div>
+                
+                <!-- TODAS LAS MEDICIONES -->
+                <div x-show="currentPage === 'all_measurements'"><header class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4"><h2 class="text-3xl font-bold text-slate-800">Todas las Mediciones</h2><button @click="exportToExcel('measurements')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center space-x-2 flex-shrink-0"><ion-icon name="download-outline"></ion-icon><span>Exportar</span></button></header><div id="grid-measurements-wrapper" class="bg-white rounded-xl shadow-md p-2"></div></div>
+
+                <!-- GESTIÓN DE CLIENTES -->
+                <div x-show="currentPage === 'clients'"><header class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4"><h2 class="text-3xl font-bold text-slate-800">Gestión de Clientes</h2><button @click="openClientModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center space-x-2 flex-shrink-0"><ion-icon name="person-add-outline"></ion-icon><span>Nuevo Cliente</span></button></header>
+                    <main class="space-y-6"><template x-if="loading.initial"><p class="text-center text-gray-500 py-10">Cargando clientes...</p></template>
+                        <template x-for="client in clients" :key="client.id"><div class="bg-white rounded-xl shadow-lg" :id="`client-card-${client.id}`">
+                            <div class="p-4 md:p-6 bg-gray-50 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                <div class="flex-1"><h2 class="text-2xl font-semibold text-gray-900" x-text="client.name"></h2><div class="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-1 text-sm text-gray-500 mt-2"><span class="flex items-center"><ion-icon name="location-outline" class="mr-1"></ion-icon><span x-text="client.address || 'Sin domicilio'"></span></span><span class="flex items-center"><ion-icon name="call-outline" class="mr-1"></ion-icon><span x-text="client.phone || 'Sin teléfono'"></span></span></div></div>
+                                <div class="flex items-center space-x-1">
+                                    <button @click="openMeasurementModal(client)" title="Agendar Medición" class="text-cyan-500 hover:text-cyan-700 p-2 rounded-full hover:bg-cyan-50 transition-colors"><ion-icon name="build-outline" class="text-2xl"></ion-icon></button>
+                                    <button @click="openOrderModal(client)" title="Crear Pedido" class="text-green-500 hover:text-green-700 p-2 rounded-full hover:bg-green-50 transition-colors"><ion-icon name="add-circle-outline" class="text-2xl"></ion-icon></button>
+                                    <button @click="confirmDelete('client', client.id)" title="Eliminar Cliente" class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition-colors"><ion-icon name="trash-outline" class="text-xl"></ion-icon></button>
+                                </div>
+                            </div>
+                            
+                            <div class="p-4 md:p-6 space-y-6">
+                                <!-- SECCIÓN DE MEDICIONES -->
+                                <template x-if="client.measurement_tasks.length > 0">
+                                    <div><h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Mediciones Programadas</h4>
+                                    <div class="space-y-3"><template x-for="task in client.measurement_tasks" :key="task.id"><div class="border rounded-lg p-3 hover:bg-gray-50" :id="`measurement-card-${task.id}`">
+                                        <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
+                                            <div class="flex items-center space-x-3"><span class="font-mono text-sm bg-gray-200 px-2 py-1 rounded" x-text="`ID-M: ${task.id}`"></span><span class="px-2 py-1 text-xs rounded-full font-semibold" :class="task.is_completed ? 'bg-orange-100 text-orange-800' : 'bg-cyan-100 text-cyan-800'" x-text="task.is_completed ? 'Medido' : 'Pendiente'"></span></div>
+                                            <div class="flex-1"><p class="font-semibold" x-text="task.description || 'Sin descripción'"></p><p class="text-xs text-gray-500 mt-1" x-text="`Dirección: ${task.address || client.address}`"></p></div>
+                                            <div class="flex items-center text-sm font-bold"><ion-icon name="calendar-outline" class="mr-2 text-cyan-600"></ion-icon><span x-text="formatFullDateTime(task.task_datetime)"></span></div>
+                                            <div class="text-right"><button @click="confirmDelete('measurement', task.id, client.id)" class="text-red-500 hover:text-red-700 text-xs font-semibold">Eliminar</button></div>
+                                        </div>
+                                    </div></template></div></div>
+                                </template>
+
+                                <!-- SECCIÓN DE PEDIDOS -->
+                                <template x-if="client.orders.length > 0">
+                                    <div><h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Pedidos</h4>
+                                    <div class="space-y-4"><template x-for="order in client.orders" :key="order.id"><div class="border rounded-lg p-4 hover:bg-gray-50" :id="`order-card-${order.id}`">
+                                        <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-start">
+                                            <div class="flex items-center space-x-3"><span class="font-mono text-sm bg-gray-200 px-2 py-1 rounded" x-text="`ID-P: ${order.id}`"></span><span class="px-2 py-1 text-xs rounded-full font-semibold" :class="statusInfo(order.status).classes" x-text="order.status"></span></div>
+                                            <div class="md:col-span-2"><p class="font-semibold leading-relaxed" x-html="highlightKeywords(order.description)"></p><p class="text-xs text-gray-500 mt-1">Creado: <span x-text="new Date(order.createdAt).toLocaleString('es-AR')"></span></p></div>
+                                            <div><p class="text-sm">Acordado: <span class="font-bold text-blue-600" x-text="formatCurrency(order.agreed_price)"></span></p><p class="text-sm">Cancelado: <span class="font-bold text-green-600" x-text="formatCurrency(order.paid_price)"></span></p><p class="text-sm">Faltante: <span class="font-bold text-red-600" x-text="formatCurrency(order.agreed_price - order.paid_price)"></span></p></div>
+                                            <div class="md:col-span-2 space-y-1"><p class="text-sm flex items-center"><strong class="font-medium w-20">Entrega:</strong><ion-icon name="rocket-outline" class="mr-1 text-indigo-600"></ion-icon><span class="font-bold text-sm" x-text="order.due_datetime ? formatFullDateTime(order.due_datetime) : 'N/A'"></span></p><p class="text-sm"><strong class="font-medium">Resp:</strong> <span x-text="order.last_admin_responder || 'N/A'"></span></p></div>
+                                        </div>
+                                        <div class="text-right mt-2"><button @click="editOrder(order)" class="text-blue-500 hover:text-blue-700 text-sm font-semibold">Editar</button><button @click="confirmDelete('order', order.id, client.id)" class="text-red-500 hover:text-red-700 text-sm font-semibold ml-4">Eliminar</button></div>
+                                    </div></template></div></div>
+                                </template>
+
+                                <template x-if="client.orders.length === 0 && client.measurement_tasks.length === 0">
+                                    <p class="text-gray-500 text-center py-4">Este cliente no tiene pedidos ni mediciones registradas.</p>
+                                </template>
+                            </div>
+                        </div></template>
+                    </main>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===== MODALES ===== -->
+    <!-- Modal Nuevo Cliente -->
+    <div x-show="isClientModalOpen" x-cloak class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"><div @click.outside="isClientModalOpen = false" class="bg-white rounded-lg shadow-xl w-full max-w-md p-6"><h3 class="text-2xl font-bold mb-6">Nuevo Cliente</h3><form @submit.prevent="saveClient()"><div class="space-y-4"><input type="text" x-model="clientForm.name" placeholder="Nombre completo" class="w-full rounded border-gray-300" required><input type="text" x-model="clientForm.address" placeholder="Domicilio" class="w-full rounded border-gray-300"><input type="text" x-model="clientForm.phone" placeholder="Celular" class="w-full rounded border-gray-300"><input type="email" x-model="clientForm.email" placeholder="Correo (opcional)" class="w-full rounded border-gray-300"></div><div class="mt-6 flex justify-end space-x-4"><button type="button" @click="isClientModalOpen = false" class="px-4 py-2 rounded bg-gray-200">Cancelar</button><button type="submit" class="px-4 py-2 rounded text-white bg-blue-600">Guardar</button></div></form></div></div>
+    
+    <!-- Modal Nuevo Pedido -->
+    <div x-show="isOrderModalOpen" x-cloak class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"><div @click.outside="isOrderModalOpen = false" class="bg-white rounded-lg shadow-xl w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto"><h3 class="text-2xl font-bold mb-4" x-text="orderForm.id ? 'Editar Pedido' : (currentClient ? 'Nuevo Pedido para ' + currentClient.name : 'Nuevo Pedido')"></h3><form @submit.prevent="saveOrder()"><div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6"><div class="space-y-4">
+        <h4 class="text-lg font-semibold border-b pb-2">Detalles del Pedido</h4>
+        <div><label class="block text-sm font-medium">Descripción</label><textarea x-model="orderForm.description" rows="5" class="mt-1 w-full rounded border-gray-300" placeholder="Ej: 1 Ventana oscilobatiente 1200x1500 color Nogal..."></textarea></div>
+        <div><label class="block text-sm font-medium">Estado del Pedido</label><select x-model="orderForm.status" class="mt-1 w-full rounded border-gray-300"><template x-for="status in orderStatuses"><option :value="status" x-text="status"></option></template></select></div>
+        <div><label class="block text-sm font-medium">Fecha y Hora de Entrega</label><input type="datetime-local" x-model="orderForm.due_datetime" class="mt-1 w-full rounded border-gray-300"></div>
+    </div><div class="space-y-4">
+        <h4 class="text-lg font-semibold border-b pb-2">Información Financiera</h4>
+        <div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-medium">Precio Acordado</label><input type="number" step="0.01" x-model.number="orderForm.agreed_price" class="mt-1 w-full rounded border-gray-300"></div><div><label class="block text-sm font-medium">Costo del Pedido</label><input type="number" step="0.01" x-model.number="orderForm.cost_price" class="mt-1 w-full rounded border-gray-300"></div><div><label class="block text-sm font-medium">Precio Cancelado</label><input type="number" step="0.01" x-model.number="orderForm.paid_price" class="mt-1 w-full rounded border-gray-300"></div><div class="bg-gray-100 p-2 rounded-md text-center"><p class="text-xs font-medium">Faltante</p><p class="text-lg font-bold text-red-600" x-text="formatCurrency((orderForm.agreed_price || 0) - (orderForm.paid_price || 0))"></p></div></div>
+        <hr class="my-4">
+        <div><label class="block text-sm font-medium">Respondido por</label><select x-model="orderForm.last_admin_responder" class="mt-1 w-full rounded border-gray-300"><option value="">Seleccionar...</option><template x-for="admin in adminResponders"><option :value="admin" x-text="admin"></option></template></select></div>
+        <div class="flex items-center pt-2"><input type="checkbox" id="is_active" x-model="orderForm.is_active" class="h-4 w-4 text-blue-600 rounded"><label for="is_active" class="ml-2 block text-sm">Pedido Activo (visible en dashboard y tareas)</label></div>
+    </div></div><div class="mt-8 flex justify-end space-x-4"><button type="button" @click="isOrderModalOpen = false" class="px-4 py-2 rounded bg-gray-200">Cancelar</button><button type="submit" class="px-4 py-2 rounded text-white bg-blue-600" x-text="orderForm.id ? 'Actualizar Pedido' : 'Crear Pedido'"></button></div></form></div></div>
+
+    <!-- Modal Nueva Medición -->
+    <div x-show="isMeasurementModalOpen" x-cloak class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"><div @click.outside="isMeasurementModalOpen = false" class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6"><h3 class="text-2xl font-bold mb-6" x-text="`Agendar Medición para ${currentClient?.name}`"></h3><form @submit.prevent="saveMeasurement()"><div class="space-y-4">
+        <div><label class="block text-sm font-medium">Descripción (Opcional)</label><textarea x-model="measurementForm.description" rows="3" class="mt-1 w-full rounded border-gray-300" placeholder="Ej: Medir aberturas para living y cocina..."></textarea></div>
+        <div><label class="block text-sm font-medium">Dirección</label><input type="text" x-model="measurementForm.address" placeholder="Dirección para la medición" class="w-full rounded border-gray-300" required></div>
+        <div><label class="block text-sm font-medium">Fecha y Hora de Medición</label><input type="datetime-local" x-model="measurementForm.task_datetime" class="mt-1 w-full rounded border-gray-300" required></div>
+    </div><div class="mt-6 flex justify-end space-x-4"><button type="button" @click="isMeasurementModalOpen = false" class="px-4 py-2 rounded bg-gray-200">Cancelar</button><button type="submit" class="px-4 py-2 rounded text-white bg-cyan-600 hover:bg-cyan-700">Agendar</button></div></form></div></div>
+    
+    <!-- Modal de Confirmación -->
+    <div x-show="confirmModal.isOpen" x-cloak class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"><div @click.outside="closeConfirmModal()" class="bg-white rounded-lg shadow-xl w-full max-w-md p-6"><div class="flex items-start"><div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10"><ion-icon name="warning-outline" class="h-6 w-6 text-red-600"></ion-icon></div><div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left"><h3 class="text-lg leading-6 font-medium text-gray-900" x-text="confirmModal.title"></h3><div class="mt-2"><p class="text-sm text-gray-500" x-text="confirmModal.message"></p></div></div></div><div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse"><button @click="executeConfirm()" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm">Confirmar</button><button @click="closeConfirmModal()" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">Cancelar</button></div></div></div>
+
+    <!-- Toast Notification -->
+    <div x-show="toast.show" x-transition:enter="toast-enter-active" x-transition:enter-start="toast-enter-from" x-transition:enter-end="toast-enter-to" x-transition:leave="toast-leave-active" x-transition:leave-start="toast-leave-from" x-transition:leave-end="toast-leave-to" x-cloak class="fixed top-5 right-5 z-50 p-4 rounded-md shadow-lg text-white" :class="toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'"><span x-text="toast.message"></span></div>
+
+<!-- ======================================================== -->
+<!-- ===== SCRIPT PRINCIPAL DE LA APLICACIÓN (MEJORADO) ===== -->
+<!-- ======================================================== -->
+<script>
+    function app() {
+        const h = gridjs.h;
+        return {
+            // --- ESTADO GENERAL ---
+            isAuthenticated: false, password: '', loginError: '', currentPage: 'dashboard', isSidebarOpen: false,
+            
+            // --- DATOS PRINCIPALES ---
+            clients: [], allOrders: [], allMeasurements: [],
+            
+            // --- DATOS DEL DASHBOARD (AHORA CARGADOS DESDE API) ---
+            dashboardData: {
+                kpis: { totalPaid: 0, totalCosts: 0, netProfit: 0, totalDebt: 0 },
+                statusSummary: [],
+                monthlyFinancials: [],
+            },
+            upcomingTasks: [],
+            
+            // --- ESTADOS DE UI Y CARGA ---
+            loading: { initial: true },
+            toast: { show: false, message: '', type: 'success' },
+            confirmModal: { isOpen: false, title: '', message: '', onConfirm: null },
+            isClientModalOpen: false, isOrderModalOpen: false, isMeasurementModalOpen: false,
+            currentClient: null,
+            clientForm: {}, orderForm: {}, measurementForm: {},
+            
+            // --- CONFIGURACIÓN ---
+            pages: [
+                { id: 'dashboard', title: 'Dashboard', icon: 'bar-chart-outline' },
+                { id: 'clients', title: 'Gestión de Clientes', icon: 'people-outline' },
+                { id: 'all_orders', title: 'Todos los Pedidos', icon: 'document-text-outline' },
+                { id: 'all_measurements', title: 'Mediciones', icon: 'build-outline' },
+                { id: 'calendar', title: 'Calendario', icon: 'calendar-outline' },
+            ],
+            kpiCards: [
+                { key: 'totalPaid', label: 'Cobro Total', icon: 'cash-outline', bgColor: 'bg-green-100', iconColor: 'text-green-600'},
+                { key: 'totalCosts', label: 'Costos Totales', icon: 'wallet-outline', bgColor: 'bg-orange-100', iconColor: 'text-orange-600'},
+                { key: 'netProfit', label: 'Ganancia Neta', icon: 'trending-up-outline', bgColor: 'bg-blue-100', iconColor: 'text-blue-600'},
+                { key: 'totalDebt', label: 'Deuda Pendiente', icon: 'alert-circle-outline', bgColor: 'bg-red-100', iconColor: 'text-red-600'}
+            ],
+            orderStatuses: ['Pendiente', 'Confirmado', 'En Producción', 'Instalado', 'Finalizado', 'Cancelado'],
+            adminResponders: ['Ali Osman', 'Vehbi', 'Marcelo'],
+            statusConfig: {
+                'Pendiente':      { color: '#FBBF24', theme: 'yellow',  calendarClass: 'fc-event-yellow' },
+                'Confirmado':     { color: '#60A5FA', theme: 'blue',    calendarClass: 'fc-event-blue' },
+                'En Producción':  { color: '#818CF8', theme: 'indigo',  calendarClass: 'fc-event-indigo' },
+                'Instalado':      { color: '#34D399', theme: 'teal',    calendarClass: 'fc-event-teal' },
+                'Finalizado':     { color: '#4ADE80', theme: 'green',   calendarClass: 'fc-event-green' },
+                'Cancelado':      { color: '#F87171', theme: 'red',     calendarClass: 'fc-event-red' },
+                'default':        { color: '#9CA3AF', theme: 'gray',    calendarClass: 'fc-event-gray' }
+            },
+            keywordMap: { 'ventana(s)?': 'keyword-product', 'puerta(s)?': 'keyword-product', 'nogal(es)?': 'keyword-color-nogal', 'blanco(s)?': 'keyword-color-blanco', 'antracita(s)?': 'keyword-color-antracita', 'winchester': 'keyword-color-winchester', 'roble dorado(s)?': 'keyword-color-robledorado', '\\b(\\d{2,}(\\.\\d+)?)\\s*[xX]\\s*(\\d{2,}(\\.\\d+)?)(mm|cm|m)?\\b': 'keyword-measure' },
+            charts: {}, calendar: null, gridOrders: null, gridMeasurements: null,
+
+            // --- MÉTODOS DE INICIO Y NAVEGACIÓN ---
+            async init() {
+                if (localStorage.getItem('starwin_auth') === 'true') {
+                    this.isAuthenticated = true;
+                    await this.loadInitialData();
+                }
+            },
+            async login() {
+                try {
+                    const response = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: this.password }) });
+                    if (!response.ok) throw new Error((await response.json()).message || 'Error de servidor');
+                    this.isAuthenticated = true;
+                    localStorage.setItem('starwin_auth', 'true');
+                    this.loginError = '';
+                    await this.loadInitialData();
+                } catch (err) {
+                    this.loginError = err.message;
+                    this.showToast(err.message, 'error');
+                }
+            },
+            logout() {
+                this.isAuthenticated = false;
+                localStorage.removeItem('starwin_auth');
+                this.clients = []; this.allOrders = []; this.allMeasurements = [];
+                Object.values(this.charts).forEach(chart => chart?.destroy());
+                this.gridOrders?.destroy(); this.gridMeasurements?.destroy(); this.calendar?.destroy();
+                this.charts = {}; this.gridOrders = null; this.gridMeasurements = null; this.calendar = null;
+                this.currentPage = 'dashboard';
+            },
+            switchPage(page) {
+                this.currentPage = page;
+                this.isSidebarOpen = false;
+                this.$nextTick(() => {
+                    if (page === 'all_orders' && this.gridOrders) this.gridOrders.forceRender();
+                    if (page === 'all_measurements' && this.gridMeasurements) this.gridMeasurements.forceRender();
+                    if (page === 'calendar' && this.calendar) this.calendar.render();
+                });
+            },
+
+            // --- CARGA Y PROCESAMIENTO DE DATOS ---
+            async loadInitialData() {
+                this.loading.initial = true;
+                try {
+                    // Carga de datos optimizada: el dashboard se carga con una sola llamada
+                    const [clientsRes, ordersRes, measurementsRes, dashboardRes] = await Promise.all([
+                        fetch('/api/clients'),
+                        fetch('/api/orders'),
+                        fetch('/api/measurements'),
+                        fetch('/api/dashboard-summary')
+                    ]);
+                    
+                    this.clients = await clientsRes.json();
+                    this.allOrders = await ordersRes.json();
+                    this.allMeasurements = await measurementsRes.json();
+                    const dashboardSummary = await dashboardRes.json();
+
+                    // Poblar datos del dashboard
+                    this.dashboardData = {
+                        kpis: dashboardSummary.kpis,
+                        statusSummary: dashboardSummary.statusSummary,
+                        monthlyFinancials: dashboardSummary.monthlyFinancials
+                    };
+                    this.upcomingTasks = dashboardSummary.upcomingTasks;
+
+                    this.processClientData();
+                    this.initViews();
+                } catch (e) {
+                    console.error("Error cargando datos:", e);
+                    this.showToast('Error al cargar datos iniciales', 'error');
+                } finally {
+                    this.loading.initial = false;
+                }
+            },
+            processClientData() {
+                // Asigna pedidos y mediciones a cada cliente (para la página de Clientes)
+                this.clients.forEach(client => {
+                    client.orders = this.allOrders
+                        .filter(o => o.client_id === client.id)
+                        .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    client.measurement_tasks = this.allMeasurements
+                        .filter(m => m.client_id === client.id)
+                        .sort((a,b) => new Date(b.task_datetime) - new Date(a.task_datetime));
+                });
+                this.clients.sort((a,b) => a.name.localeCompare(b.name));
+            },
+
+            // --- INICIALIZACIÓN Y ACTUALIZACIÓN DE VISTAS (Grids, Charts, Calendar) ---
+            initViews() { this.$nextTick(() => { this.initCharts(); this.initGrids(); this.initCalendar(); }); },
+            updateViews() {
+                // Al actualizar, recargamos los datos del dashboard y los datos de las listas
+                this.loadInitialData().then(() => {
+                    this.$nextTick(() => { this.updateCharts(); this.updateGrids(); this.updateCalendar(); });
+                });
+            },
+            
+            initCharts() { this.createAllCharts(); },
+            updateCharts() { Object.values(this.charts).forEach(chart => chart?.destroy()); this.createAllCharts(); },
+            createAllCharts() {
+                Chart.register(ChartDataLabels);
+                const create = (id, cfg) => { const ctx = document.getElementById(id); if (ctx) return new Chart(ctx, cfg); };
+                
+                // Gráfico 1: Financiero Mensual (Combinado)
+                this.charts.monthlyFinancials = create('monthlyFinancialsChart', {
+                    type: 'bar',
+                    data: {
+                        labels: this.dashboardData.monthlyFinancials.map(d => d.month),
+                        datasets: [
+                            { type: 'line', label: 'Acordado', data: this.dashboardData.monthlyFinancials.map(d => d.agreed), borderColor: '#3B82F6', tension: 0.3, fill: false, borderWidth: 2 },
+                            { type: 'bar', label: 'Cobrado', data: this.dashboardData.monthlyFinancials.map(d => d.paid), backgroundColor: '#10B981' },
+                            { type: 'bar', label: 'Costo', data: this.dashboardData.monthlyFinancials.map(d => d.cost), backgroundColor: '#F97316' },
+                        ]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { beginAtZero: true } } }
+                });
+
+                // Gráfico 2: Resumen de Estados (Dona)
+                if(this.dashboardData.statusSummary.length > 0) {
+                    this.charts.statusSummary = create('statusSummaryChart', {
+                        type: 'doughnut',
+                        data: {
+                            labels: this.dashboardData.statusSummary.map(s => s.status),
+                            datasets: [{
+                                data: this.dashboardData.statusSummary.map(s => s.count),
+                                backgroundColor: this.dashboardData.statusSummary.map(s => this.statusInfo(s.status).color),
+                                borderWidth: 3,
+                                borderColor: '#fff'
+                            }]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false, cutout: '60%',
+                            plugins: {
+                                legend: { display: false },
+                                datalabels: {
+                                    formatter: (value, ctx) => {
+                                        const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                        const percentage = (value / total * 100);
+                                        return percentage > 5 ? percentage.toFixed(0) + '%' : '';
+                                    },
+                                    color: '#fff', font: { weight: 'bold', size: 14 }
+                                }
+                            }
+                        }
+                    });
+                }
+            },
+
+            initGrids() {
+                const commonConfig = { search: true, sort: true, pagination: { limit: 15 }, language: { search: { placeholder: '🔍 Buscar...' } } };
+                const gridOrdersEl = document.getElementById('grid-orders-wrapper');
+                const gridMeasurementsEl = document.getElementById('grid-measurements-wrapper');
+                
+                if (gridOrdersEl) {
+                    this.gridOrders = new gridjs.Grid({
+                        ...commonConfig,
+                        columns: [
+                            { id: 'id', name: 'ID' }, { id: 'clientName', name: 'Cliente' },
+                            { id: 'description', name: 'Descripción', formatter: (c) => h('span', { dangerouslySetInnerHTML: { __html: this.highlightKeywords(c) } }) },
+                            { id: 'status', name: 'Estado', formatter: (c) => h('span', { className: `px-2 py-1 text-xs rounded-full font-semibold ${this.statusInfo(c).classes}` }, c) },
+                            { id: 'due_datetime', name: 'Entrega', formatter: (c) => c ? this.formatFullDateTime(c) : '-' },
+                            { id: 'agreed_price', name: 'Precio', formatter: (c) => this.formatCurrency(c) },
+                            { id: 'debt', name: 'Deuda', formatter: (c, r) => h('span', { className: c > 0 ? 'font-bold text-red-600' : '' }, this.formatCurrency(c)) },
+                        ],
+                        data: this.allOrders.map(o => ({ ...o, debt: o.agreed_price - o.paid_price })),
+                    }).render(gridOrdersEl);
+                }
+
+                if (gridMeasurementsEl) {
+                    this.gridMeasurements = new gridjs.Grid({
+                        ...commonConfig,
+                        columns: [
+                            { id: 'id', name: 'ID' }, { id: 'clientName', name: 'Cliente' },
+                            { id: 'description', name: 'Descripción' }, { id: 'address', name: 'Dirección' },
+                            { id: 'task_datetime', name: 'Fecha y Hora', formatter: (c) => this.formatFullDateTime(c) },
+                            { id: 'is_completed', name: 'Estado', formatter: (c) => h('span', { className: `px-2 py-1 text-xs rounded-full font-semibold ${c ? 'bg-orange-100 text-orange-800' : 'bg-cyan-100 text-cyan-800'}` }, c ? 'Medido' : 'Pendiente') },
+                        ],
+                        data: this.allMeasurements,
+                    }).render(gridMeasurementsEl);
+                }
+            },
+            updateGrids() {
+                if (this.gridOrders) this.gridOrders.updateConfig({ data: this.allOrders.map(o => ({ ...o, debt: o.agreed_price - o.paid_price })) }).forceRender();
+                if (this.gridMeasurements) this.gridMeasurements.updateConfig({ data: this.allMeasurements }).forceRender();
+            },
+            
+            initCalendar() {
+                if (this.calendar) this.calendar.destroy();
+                const calendarEl = document.getElementById('calendar-container');
+                if(!calendarEl) return;
+                this.calendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'dayGridMonth', locale: 'es',
+                    buttonText: { today: 'Hoy', month: 'Mes', week: 'Semana' },
+                    headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
+                    events: this.generateCalendarEvents(),
+                    eventClick: (info) => this.navigateTo(info.event.extendedProps.type, info.event.extendedProps.clientId, info.event.extendedProps.taskId)
+                });
+                this.calendar.render();
+            },
+            updateCalendar() {
+                if (this.calendar) {
+                    this.calendar.getEventSources().forEach(s => s.remove());
+                    this.calendar.addEventSource(this.generateCalendarEvents());
+                }
+            },
+            generateCalendarEvents() {
+                let events = [];
+                // Eventos de Pedidos
+                this.allOrders.forEach(o => {
+                    if (o.status !== 'Cancelado' && o.due_datetime) {
+                        const props = { type: 'Entrega', taskId: o.id, clientId: o.client_id };
+                        if (o.status === 'Finalizado') {
+                            events.push({ title: `Finalizado: ${o.clientName} (ID-P: ${o.id})`, start: o.due_datetime, classNames: ['fc-event-green'], extendedProps: props });
+                        } else {
+                            events.push({ title: `Entrega: ${o.clientName}`, start: o.due_datetime, classNames: [this.statusInfo(o.status).calendarClass], extendedProps: props });
+                        }
+                    }
+                });
+                // Eventos de Mediciones
+                this.allMeasurements.forEach(m => {
+                    const props = { type: 'Medición', taskId: m.id, clientId: m.client_id };
+                    const title = `Medición: ${m.clientName}`;
+                    const classNames = m.is_completed ? ['fc-event-orange'] : ['fc-event-cyan'];
+                    events.push({ title, start: m.task_datetime, classNames, extendedProps: props });
+                });
+                return events;
+            },
+            navigateTo(type, clientId, taskId) {
+                this.switchPage('clients');
+                this.$nextTick(() => {
+                    const cardId = type === 'Medición' ? `measurement-card-${taskId}` : `order-card-${taskId}`;
+                    const card = document.getElementById(cardId);
+                    if (card) {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        card.classList.add('highlight-card');
+                        setTimeout(() => card.classList.remove('highlight-card'), 2500);
+                    }
+                });
+            },
+
+            // --- MÉTODOS CRUD ---
+            openClientModal() { this.clientForm = {}; this.isClientModalOpen = true; },
+            async saveClient() { try { const res = await fetch('/api/clients', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(this.clientForm) }); if (!res.ok) throw new Error('Error de servidor o cliente duplicado'); const newClient = await res.json(); this.clients.push(newClient); this.clients.sort((a,b) => a.name.localeCompare(b.name)); this.isClientModalOpen = false; this.showToast('Cliente guardado con éxito.', 'success'); } catch(e) { this.showToast(e.message, 'error'); } },
+            
+            openOrderModal(client) { this.currentClient = client; this.orderForm = { client_id: client.id, status: 'Pendiente', is_active: true }; this.isOrderModalOpen = true; },
+            editOrder(order) { this.currentClient = this.clients.find(c => c.id === order.client_id); this.orderForm = { ...order, due_datetime: order.due_datetime ? order.due_datetime.slice(0, 16) : null }; this.isOrderModalOpen = true; },
+            async saveOrder() { try { const isNew = !this.orderForm.id; const url = isNew ? '/api/orders' : `/api/orders/${this.orderForm.id}`; const method = isNew ? 'POST' : 'PUT'; const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(this.orderForm) }); if (!res.ok) throw new Error('Error al guardar el pedido'); this.isOrderModalOpen = false; this.updateViews(); this.showToast('Pedido guardado con éxito.', 'success'); } catch(e) { this.showToast(e.message, 'error'); } },
+            
+            openMeasurementModal(client) { this.currentClient = client; this.measurementForm = { client_id: client.id, address: client.address || '' }; this.isMeasurementModalOpen = true; },
+            async saveMeasurement() { try { const res = await fetch('/api/measurements', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(this.measurementForm) }); if (!res.ok) throw new Error('Error al guardar la medición'); this.isMeasurementModalOpen = false; this.updateViews(); this.showToast('Medición agendada con éxito.', 'success'); } catch(e) { this.showToast(e.message, 'error'); } },
+
+            confirmDelete(type, id, clientId = null) {
+                if (type === 'client') { this.confirmModal = { isOpen: true, title: 'Eliminar Cliente', message: '¿Seguro? Se borrarán el cliente y TODOS sus pedidos y mediciones. Esta acción no se puede deshacer.', onConfirm: () => this.deleteEntity('client', id) }; }
+                else if (type === 'order') { this.confirmModal = { isOpen: true, title: 'Eliminar Pedido', message: '¿Seguro que quieres eliminar este pedido?', onConfirm: () => this.deleteEntity('order', id, clientId) }; }
+                else if (type === 'measurement') { this.confirmModal = { isOpen: true, title: 'Eliminar Medición', message: '¿Seguro que quieres eliminar esta tarea de medición?', onConfirm: () => this.deleteEntity('measurement', id, clientId) }; }
+            },
+            async deleteEntity(type, id) {
+                try {
+                    const urlMap = { client: `/api/clients/${id}`, order: `/api/orders/${id}`, measurement: `/api/measurements/${id}` };
+                    await fetch(urlMap[type], { method: 'DELETE' });
+                    this.updateViews(); // La forma más simple de asegurar que todo el estado está sincronizado
+                    this.showToast('Elemento eliminado con éxito.', 'success');
+                } catch (e) { this.showToast('Error al eliminar.', 'error'); }
+            },
+            closeConfirmModal() { this.confirmModal = { isOpen: false, title: '', message: '', onConfirm: null }; },
+            executeConfirm() { if (this.confirmModal.onConfirm) { this.confirmModal.onConfirm(); } this.closeConfirmModal(); },
+
+            // --- MÉTODOS DE UTILIDAD ---
+            showToast(message, type = 'success') { this.toast.message = message; this.toast.type = type; this.toast.show = true; setTimeout(() => this.toast.show = false, 4000); },
+            formatCurrency(value) { return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value || 0); },
+            formatFullDateTime(dateTimeString) { if (!dateTimeString) return 'N/A'; return new Date(dateTimeString).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }); },
+            statusInfo(status) { const config = this.statusConfig[status] || this.statusConfig.default; return { ...config, classes: `bg-${config.theme}-100 text-${config.theme}-800` }; },
+            highlightKeywords(text) { if (!text) return ''; let highlightedText = text; for (const [keyword, cssClass] of Object.entries(this.keywordMap)) { const regex = new RegExp(keyword, 'gi'); highlightedText = highlightedText.replace(regex, (match) => `<span class="keyword-common ${cssClass}">${match}</span>`); } return highlightedText; },
+            exportToExcel(type) {
+                let data, headers, filename;
+                if (type === 'orders') {
+                    headers = ['ID', 'Cliente', 'Teléfono', 'Descripción', 'Estado', 'Fecha Entrega', 'Precio Acordado', 'Deuda', 'Costo', 'Ganancia Neta'];
+                    data = this.allOrders.map(o => ({ 'ID': o.id, 'Cliente': o.clientName, 'Teléfono': o.clientPhone || '-', 'Descripción': o.description, 'Estado': o.status, 'Fecha Entrega': o.due_datetime ? this.formatFullDateTime(o.due_datetime) : 'N/A', 'Precio Acordado': o.agreed_price, 'Deuda': o.agreed_price - o.paid_price, 'Costo': o.cost_price, 'Ganancia Neta': o.paid_price - o.cost_price }));
+                    filename = `Starwin_Pedidos_${new Date().toISOString().slice(0,10)}.xlsx`;
+                } else { // measurements
+                    headers = ['ID', 'Cliente', 'Descripción', 'Dirección', 'Fecha Programada', 'Estado'];
+                    data = this.allMeasurements.map(m => ({ 'ID': m.id, 'Cliente': m.clientName, 'Descripción': m.description, 'Dirección': m.address, 'Fecha Programada': this.formatFullDateTime(m.task_datetime), 'Estado': m.is_completed ? 'Medido' : 'Pendiente' }));
+                    filename = `Starwin_Mediciones_${new Date().toISOString().slice(0,10)}.xlsx`;
+                }
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Datos");
+                XLSX.writeFile(wb, filename);
+            }
+        }
+    }
+</script>
+</body>
+</html>
